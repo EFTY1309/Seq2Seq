@@ -1,27 +1,28 @@
-# Quick Start Configuration for Seq2Seq Code Generation
-# ULTRA-FAST: ~5 minutes per model (for testing only)
+# Configuration for Seq2Seq Code Generation
+# FAST TRAINING: ~10-15 minutes total (for quick testing)
+# NOTE: For final submission, use config.yaml with 5000+ examples
 
 # Dataset settings
 dataset:
   name: "Nan-Do/code-search-net-python"
-  train_size: 100 # Minimal for 5-min training
-  val_size: 20 # Minimal
-  test_size: 20 # Minimal
-  max_docstring_length: 50
-  max_code_length: 80
+  train_size: 1000 # Reduced for speed (use 5000+ for final)
+  val_size: 200 # Reduced for speed
+  test_size: 200 # Reduced for speed
+  max_docstring_length: 50 # Assignment requirement
+  max_code_length: 80 # Assignment requirement
   cache_dir: "./data_cache"
 
 # Model settings
 model:
-  embedding_dim: 128 # Smaller model for speed
-  hidden_dim: 128 # Smaller model for speed
+  embedding_dim: 128 # Smaller for speed (use 256 for final)
+  hidden_dim: 128 # Smaller for speed (use 256 for final)
   dropout: 0.3
-  max_vocab_size: 5000 # Reduced vocabulary
+  max_vocab_size: 5000 # Reduced for speed
 
 # Training settings
 training:
-  batch_size: 8 # Small batches for CPU
-  num_epochs: 2 # Just 2 epochs for quick test
+  batch_size: 16 # Balanced for speed
+  num_epochs: 3 # Minimal for speed (use 15+ for final)
   learning_rate: 0.001
   teacher_forcing_ratio: 0.5
   gradient_clip: 5.0
