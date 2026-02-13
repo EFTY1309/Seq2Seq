@@ -1,0 +1,38 @@
+# Quick Start Configuration for Seq2Seq Code Generation
+# ULTRA-FAST: ~5 minutes per model (for testing only)
+
+# Dataset settings
+dataset:
+  name: "Nan-Do/code-search-net-python"
+  train_size: 100 # Minimal for 5-min training
+  val_size: 20 # Minimal
+  test_size: 20 # Minimal
+  max_docstring_length: 50
+  max_code_length: 80
+  cache_dir: "./data_cache"
+
+# Model settings
+model:
+  embedding_dim: 128 # Smaller model for speed
+  hidden_dim: 128 # Smaller model for speed
+  dropout: 0.3
+  max_vocab_size: 5000 # Reduced vocabulary
+
+# Training settings
+training:
+  batch_size: 8 # Small batches for CPU
+  num_epochs: 2 # Just 2 epochs for quick test
+  learning_rate: 0.001
+  teacher_forcing_ratio: 0.5
+  gradient_clip: 5.0
+  save_every: 1 # Save every epoch
+
+# Paths
+paths:
+  checkpoints: "./checkpoints"
+  results: "./results"
+  visualizations: "./visualizations"
+  logs: "./logs"
+
+# Device
+device: "cuda" # or "cpu"

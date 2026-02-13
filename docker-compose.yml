@@ -1,0 +1,62 @@
+version: "3.8"
+
+services:
+  seq2seq:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: seq2seq-code-generation:latest
+    container_name: seq2seq_training
+    volumes:
+      - ./checkpoints:/app/checkpoints
+      - ./results:/app/results
+      - ./visualizations:/app/visualizations
+      - ./logs:/app/logs
+      - ./data_cache:/app/data_cache
+    environment:
+      - PYTHONUNBUFFERED=1
+    # Uncomment the following lines if you have GPU support
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    command: python train.py --model all
+
+  evaluate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: seq2seq-code-generation:latest
+    container_name: seq2seq_evaluation
+    volumes:
+      - ./checkpoints:/app/checkpoints
+      - ./results:/app/results
+      - ./visualizations:/app/visualizations
+      - ./logs:/app/logs
+      - ./data_cache:/app/data_cache
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python evaluate.py --model all
+    profiles:
+      - evaluation
+
+  visualize:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: seq2seq-code-generation:latest
+    container_name: seq2seq_visualization
+    volumes:
+      - ./checkpoints:/app/checkpoints
+      - ./results:/app/results
+      - ./visualizations:/app/visualizations
+      - ./logs:/app/logs
+      - ./data_cache:/app/data_cache
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python visualize_attention.py --num_examples 10 --summary
+    profiles:
+      - visualization
