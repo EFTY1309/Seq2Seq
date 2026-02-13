@@ -22,7 +22,9 @@ RUN mkdir -p checkpoints results visualizations logs data_cache
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
-ENV CUDA_VISIBLE_DEVICES=0
 
-# Default command
-CMD ["python", "train.py", "--model", "all"]
+# Make run script executable
+RUN chmod +x run.sh || echo "run.sh not found, skipping"
+
+# Default command - trains all models
+CMD ["python", "train.py", "--config", "config_quick.yaml", "--model", "all"]

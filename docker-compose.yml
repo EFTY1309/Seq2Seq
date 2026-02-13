@@ -1,6 +1,27 @@
 version: "3.8"
 
 services:
+  # Single command to run everything (train + evaluate + visualize)
+  all:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: seq2seq-code-generation:latest
+    container_name: seq2seq_all_in_one
+    volumes:
+      - ./checkpoints:/app/checkpoints
+      - ./results:/app/results
+      - ./visualizations:/app/visualizations
+      - ./logs:/app/logs
+      - ./data_cache:/app/data_cache
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: >
+      sh -c "python train.py --config config_quick.yaml --model all &&
+             python evaluate.py --model all --split test &&
+             python visualize_attention.py --num_examples 5 --summary"
+
+  # Train all models
   seq2seq:
     build:
       context: .
@@ -15,16 +36,9 @@ services:
       - ./data_cache:/app/data_cache
     environment:
       - PYTHONUNBUFFERED=1
-    # Uncomment the following lines if you have GPU support
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
-    command: python train.py --model all
+    command: python train.py --config config_quick.yaml --model all
 
+  # Evaluate models
   evaluate:
     build:
       context: .
@@ -39,10 +53,11 @@ services:
       - ./data_cache:/app/data_cache
     environment:
       - PYTHONUNBUFFERED=1
-    command: python evaluate.py --model all
+    command: python evaluate.py --model all --split test
     profiles:
       - evaluation
 
+  # Visualize attention
   visualize:
     build:
       context: .
@@ -57,6 +72,6 @@ services:
       - ./data_cache:/app/data_cache
     environment:
       - PYTHONUNBUFFERED=1
-    command: python visualize_attention.py --num_examples 10 --summary
+    command: python visualize_attention.py --num_examples 5 --summary
     profiles:
       - visualization
