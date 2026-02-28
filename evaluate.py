@@ -343,19 +343,56 @@ def main():
         evaluator = Evaluator(model, model_config, device, model_name, src_vocab, tgt_vocab)
         results = evaluator.evaluate(data_loader)
         
-        all_results[model_name] = results['overall']
+        all_results[model_name] = {
+            'overall': results['overall'],
+            'by_length': results['by_length']
+        }
     
     # Print comparison
     if len(all_results) > 1:
+        # Overall comparison
         print(f'\n{"="*60}')
-        print('Model Comparison')
+        print('Model Comparison — Overall')
         print(f'{"="*60}')
         print(f'{"Model":<15} {"BLEU":<10} {"Token Acc":<12} {"Exact Match":<12}')
         print('-' * 60)
-        for model_name, metrics in all_results.items():
+        for model_name, data in all_results.items():
+            metrics = data['overall']
             print(f'{model_name:<15} {metrics["bleu"]:<10.2f} '
                   f'{metrics["token_accuracy"]*100:<12.2f} '
                   f'{metrics["exact_match"]*100:<12.2f}')
+
+        # Cross-model by-length comparison
+        all_buckets = sorted(set(
+            bucket
+            for data in all_results.values()
+            for bucket in data['by_length'].keys()
+        ))
+
+        for metric_key, metric_label in [
+            ('bleu', 'BLEU'),
+            ('token_accuracy', 'Token Accuracy (%)'),
+            ('exact_match', 'Exact Match (%)'),
+        ]:
+            print(f'\n{"="*60}')
+            print(f'Model Comparison by Docstring Length — {metric_label}')
+            print(f'{"="*60}')
+            model_names = list(all_results.keys())
+            header = f'{"Length":<10}' + ''.join(f'{m:<15}' for m in model_names)
+            print(header)
+            print('-' * (10 + 15 * len(model_names)))
+            for bucket in all_buckets:
+                row = f'{bucket:<10}'
+                for model_name in model_names:
+                    bucket_data = all_results[model_name]['by_length'].get(bucket)
+                    if bucket_data:
+                        val = bucket_data[metric_key]
+                        if metric_key != 'bleu':
+                            val *= 100
+                        row += f'{val:<15.2f}'
+                    else:
+                        row += f'{"N/A":<15}'
+                print(row)
 
 
 if __name__ == '__main__':
