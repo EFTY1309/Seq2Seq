@@ -4,7 +4,7 @@
 # Dataset settings
 dataset:
   name: "Nan-Do/code-search-net-python"
-  train_size: 10000 # Assignment requirement: 5000-10000
+  train_size: 1000 # Assignment requirement: 5000-10000
   val_size: 1000
   test_size: 1000
   max_docstring_length: 50 # Assignment requirement

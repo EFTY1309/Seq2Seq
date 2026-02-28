@@ -1,6 +1,8 @@
 """
 Evaluation metrics and testing script
 """
+import ast
+import re
 import torch
 import yaml
 import os
@@ -183,6 +185,13 @@ class Evaluator:
             print(f'    BLEU:          {metrics["bleu"]:.2f}')
             print(f'    Token Acc:     {metrics["token_accuracy"]*100:.2f}%')
             print(f'    Exact Match:   {metrics["exact_match"]*100:.2f}%')
+
+        # Analyze error types
+        error_analysis = self.analyze_error_types(predictions, references)
+
+        print(f'\nError Type Analysis:')
+        for category, data in error_analysis.items():
+            print(f'  {category:<25} count={data["count"]:>4}  ({data["percentage"]:>5.1f}%)')
         
         # Save results
         results = {
@@ -194,6 +203,7 @@ class Evaluator:
             },
             'by_length': {k: {mk: float(mv) for mk, mv in v.items()} 
                          for k, v in length_analysis.items()},
+            'error_analysis': error_analysis,
             'examples': self.get_example_predictions(predictions, references, src_texts, n=10)
         }
         
@@ -208,6 +218,80 @@ class Evaluator:
         
         return results
     
+    def analyze_error_types(self, predictions, references):
+        """
+        Categorize prediction errors into four types:
+          - syntax_error       : prediction cannot be parsed as valid Python
+          - missing_indentation: reference has indented lines but prediction has none
+          - wrong_operator     : a Python operator present in reference is absent/wrong in prediction
+          - length_mismatch    : prediction token count differs from reference by >50 %
+          - correct            : none of the above apply
+        Returns a dict with counts and percentage for each category, plus a list of examples.
+        """
+        OPERATORS = {'+', '-', '*', '/', '//', '%', '**', '==', '!=', '<', '>', '<=', '>=',
+                     'and', 'or', 'not', 'in', 'is', '=', '+=', '-=', '*=', '/=', '->', ':'}
+
+        counts = defaultdict(int)
+        error_examples = defaultdict(list)
+
+        for pred, ref in zip(predictions, references):
+            pred_tokens = self.tgt_vocab.tokenize(pred)
+            ref_tokens  = self.tgt_vocab.tokenize(ref)
+
+            # 1. Syntax error — try to parse prediction as Python
+            try:
+                ast.parse(pred)
+                has_syntax_error = False
+            except SyntaxError:
+                has_syntax_error = True
+
+            # 2. Missing indentation — reference contains indented lines, prediction doesn't
+            ref_lines  = ref.split('\n')
+            pred_lines = pred.split('\n')
+            ref_has_indent  = any(line.startswith(('    ', '\t')) for line in ref_lines)
+            pred_has_indent = any(line.startswith(('    ', '\t')) for line in pred_lines)
+            missing_indent = ref_has_indent and not pred_has_indent
+
+            # 3. Wrong operator — an operator in the reference is missing from the prediction
+            ref_ops  = OPERATORS & set(ref_tokens)
+            pred_ops = OPERATORS & set(pred_tokens)
+            missing_ops = ref_ops - pred_ops
+            wrong_operator = len(missing_ops) > 0
+
+            # 4. Length mismatch — prediction length deviates by more than 50 %
+            if len(ref_tokens) > 0:
+                ratio = len(pred_tokens) / len(ref_tokens)
+                length_mismatch = ratio < 0.5 or ratio > 2.0
+            else:
+                length_mismatch = len(pred_tokens) > 0
+
+            # Assign category (priority order)
+            if has_syntax_error:
+                category = 'syntax_error'
+            elif missing_indent:
+                category = 'missing_indentation'
+            elif wrong_operator:
+                category = 'wrong_operator'
+            elif length_mismatch:
+                category = 'length_mismatch'
+            else:
+                category = 'correct'
+
+            counts[category] += 1
+            if category != 'correct' and len(error_examples[category]) < 3:
+                error_examples[category].append({'prediction': pred, 'reference': ref})
+
+        total = len(predictions)
+        results = {}
+        for cat in ['syntax_error', 'missing_indentation', 'wrong_operator', 'length_mismatch', 'correct']:
+            n = counts[cat]
+            results[cat] = {
+                'count': n,
+                'percentage': round(n / total * 100, 2) if total > 0 else 0.0,
+                'examples': error_examples.get(cat, [])
+            }
+        return results
+
     def get_example_predictions(self, predictions, references, src_texts, n=10):
         """Get example predictions for analysis"""
         examples = []
@@ -345,7 +429,8 @@ def main():
         
         all_results[model_name] = {
             'overall': results['overall'],
-            'by_length': results['by_length']
+            'by_length': results['by_length'],
+            'error_analysis': results['error_analysis']
         }
     
     # Print comparison
@@ -393,6 +478,22 @@ def main():
                     else:
                         row += f'{"N/A":<15}'
                 print(row)
+
+        # Cross-model error type comparison
+        print(f'\n{"="*60}')
+        print('Model Comparison — Error Types')
+        print(f'{"="*60}')
+        error_cats = ['syntax_error', 'missing_indentation', 'wrong_operator', 'length_mismatch', 'correct']
+        model_names_list = list(all_results.keys())
+        header = f'{"Error Type":<25}' + ''.join(f'{m+" %":<15}' for m in model_names_list)
+        print(header)
+        print('-' * (25 + 15 * len(model_names_list)))
+        for cat in error_cats:
+            row = f'{cat:<25}'
+            for mn in model_names_list:
+                pct = all_results[mn]['error_analysis'].get(cat, {}).get('percentage', 0.0)
+                row += f'{pct:<15.1f}'
+            print(row)
 
 
 if __name__ == '__main__':
